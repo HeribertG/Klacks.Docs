@@ -8,7 +8,8 @@ public static class DocsReader
         ["clients"] = "Mitarbeiterverwaltung",
         ["shifts"] = "Schichtplanung",
         ["identity-providers"] = "LDAP/OAuth2 Konfiguration",
-        ["macros"] = "Makro-Scripting System"
+        ["macros"] = "Makro-Scripting System",
+        ["calendar-rules"] = "Ewigkeitskalender Feiertagsregeln"
     };
 
     public static IReadOnlyDictionary<string, string> GetAvailableDocs() => AvailableDocs;
