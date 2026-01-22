@@ -309,3 +309,40 @@ OUTPUT 1, Round(TotalBonus, 2)
 - **Separate Sa/So-Sätze:** sarate und sorate ermöglichen unterschiedliche Zuschläge für Samstag und Sonntag
 - **Höchster Zuschlag:** Es wird immer der höchste anwendbare Zuschlag verwendet
 - **holidaynextday:** Berücksichtigt ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten)
+
+## Speicherung der Ergebnisse
+
+Das Macro-Ergebnis wird in `Work.Surcharges` gespeichert und bei der PeriodHours-Berechnung berücksichtigt:
+
+```
+Work erstellen
+    │
+    ▼
+WorkMacroService.ProcessWorkMacroAsync()
+    │ Macro ausführen
+    ▼
+work.Surcharges = macroResult
+    │
+    ▼
+PeriodHoursService.RecalculateAndNotifyAsync()
+    │ Summiert Work.Surcharges + WorkChange.ChangeTime
+    ▼
+ClientPeriodHours.Surcharges speichern
+    │
+    ▼
+Frontend: Row-Header Slot 3 anzeigen
+```
+
+---
+
+## Changelog
+
+### 22.01.2026 - Surcharges Berechnung Fix
+
+Das Macro-Ergebnis (`Work.Surcharges`) wird jetzt korrekt in der PeriodHours-Berechnung berücksichtigt:
+
+```csharp
+// PeriodHoursService.cs + WorkRepository.cs
+TotalSurcharges = g.Sum(w => w.Surcharges)  // Summe aller Macro-Ergebnisse
+Surcharges = workData.Surcharges + workChangeSurcharges  // + manuelle Korrekturen
+```
