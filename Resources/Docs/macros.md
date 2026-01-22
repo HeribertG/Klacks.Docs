@@ -22,20 +22,34 @@ IMPORT betrag, rabatt
 
 ### Importierte Variablen (IMPORT)
 
-Diese Variablen werden aus dem jeweiligen Dienst oder der Beschäftigung generiert:
+Diese Variablen werden aus Work, Contract und CalendarSelection generiert:
 
 | Variable | Typ | Beschreibung |
 |----------|-----|--------------|
-| Hour | Decimal | Arbeitsstunden |
-| FromHour | String | Startzeit im Format "HH:MM" |
-| UntilHour | String | Endzeit im Format "HH:MM" |
-| Weekday | Integer | Wochentag (1=Mo, 2=Di, ..., 6=Sa, 7=So) |
-| Holiday | Integer | Feiertagsstatus (0=kein, 1=Feiertag, -1=Vortag, -2=Nachtag) |
-| NightRate | Decimal | Nachtzuschlag-Satz (z.B. 0.10 = 10%) |
-| HolidayRate | Decimal | Feiertagszuschlag-Satz (z.B. 0.15 = 15%) |
-| WeekendRate | Decimal | Wochenendzuschlag-Satz (z.B. 0.10 = 10%) |
-| GuaranteedHours | Decimal | Garantierte Monatsstunden |
-| FullTime | Decimal | Beschäftigungsgrad in % (z.B. 100.0) |
+| hour | Decimal | Arbeitsstunden (aus Work) |
+| fromhour | Decimal | Startzeit als Dezimalstunden (8:30 → 8.5) |
+| untilhour | Decimal | Endzeit als Dezimalstunden (17:00 → 17.0) |
+| weekday | Integer | Wochentag ISO-8601 (1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa, 7=So) |
+| holiday | Boolean | Ist aktueller Tag ein offizieller Feiertag |
+| holidaynextday | Boolean | Ist Folgetag ein offizieller Feiertag |
+| nightrate | Decimal | Nachtzuschlag-Satz aus Contract (z.B. 0.10 = 10%) |
+| holidayrate | Decimal | Feiertagszuschlag-Satz aus Contract (z.B. 0.15 = 15%) |
+| sarate | Decimal | Samstagszuschlag-Satz aus Contract |
+| sorate | Decimal | Sonntagszuschlag-Satz aus Contract |
+| guaranteedhours | Decimal | Garantierte Monatsstunden aus Contract |
+| fulltime | Decimal | Vollzeit-Stunden aus Contract |
+
+### Weekday-Werte (ISO-8601)
+
+| Wert | Tag |
+|------|-----|
+| 1 | Montag (Monday) |
+| 2 | Dienstag (Tuesday) |
+| 3 | Mittwoch (Wednesday) |
+| 4 | Donnerstag (Thursday) |
+| 5 | Freitag (Friday) |
+| 6 | Samstag (Saturday) |
+| 7 | Sonntag (Sunday) |
 
 ## Kontrollstrukturen
 
@@ -63,10 +77,10 @@ IF x > 10 THEN OUTPUT 1, "gross" ENDIF
 
 ```basic
 SELECT CASE weekday
-    CASE 6, 7
-        OUTPUT 1, "Wochenende"
-    CASE 1, 2, 3, 4, 5
-        OUTPUT 1, "Arbeitstag"
+    CASE 1, 7
+        OUTPUT 1, "Wochenende"    ' So=1, Sa=7
+    CASE 2, 3, 4, 5, 6
+        OUTPUT 1, "Arbeitstag"    ' Mo-Fr
     CASE ELSE
         OUTPUT 1, "Unbekannt"
 END SELECT
@@ -236,44 +250,54 @@ DEBUGPRINT "Der Wert ist: " & x
 Berechnet Zuschläge für Nacht, Feiertag und Wochenende mit korrekter Behandlung von Schichten über Mitternacht:
 
 ```basic
-IMPORT Hour, FromHour, UntilHour
-IMPORT Weekday, Holiday, HolidayNextDay
-IMPORT NightRate, HolidayRate, WeekendRate
+IMPORT hour, fromhour, untilhour
+IMPORT weekday, holiday, holidaynextday
+IMPORT nightrate, holidayrate, sarate, sorate
 
-FUNCTION CalcSegment(StartTime, EndTime, HolidayFlag, WeekdayNum)
+FUNCTION CalcSegment(StartHour, EndHour, IsHoliday, WeekdayNum)
     DIM SegmentHours, NightHours, NonNightHours
-    DIM NRate, DRate, HasHoliday, HasWeekend
+    DIM NRate, DRate, HasHoliday, HasSaturday, HasSunday
 
-    SegmentHours = TimeToHours(EndTime) - TimeToHours(StartTime)
+    SegmentHours = EndHour - StartHour
     IF SegmentHours < 0 THEN SegmentHours = SegmentHours + 24 ENDIF
 
-    NightHours = TimeOverlap("23:00", "06:00", StartTime, EndTime)
+    ' Berechne Nachtstunden (23:00-06:00)
+    NightHours = 0
+    IF StartHour < 6 THEN NightHours = NightHours + IIF(EndHour < 6, EndHour, 6) - StartHour ENDIF
+    IF EndHour > 23 OrElse EndHour < StartHour THEN NightHours = NightHours + IIF(StartHour > 23, 24 - StartHour, 24 - 23) ENDIF
     NonNightHours = SegmentHours - NightHours
 
-    HasHoliday = HolidayFlag = 1
-    HasWeekend = WeekdayNum = 6 OrElse WeekdayNum = 7
+    HasHoliday = IsHoliday
+    HasSaturday = WeekdayNum = 6    ' Sa = 6 (ISO-8601)
+    HasSunday = WeekdayNum = 7      ' So = 7 (ISO-8601)
 
-    NRate = 0
-    IF NightHours > 0 THEN NRate = NightRate ENDIF
-    IF HasHoliday AndAlso HolidayRate > NRate THEN NRate = HolidayRate ENDIF
-    IF HasWeekend AndAlso WeekendRate > NRate THEN NRate = WeekendRate ENDIF
+    ' Höchster Satz für Nachtstunden
+    NRate = nightrate
+    IF HasHoliday AndAlso holidayrate > NRate THEN NRate = holidayrate ENDIF
+    IF HasSaturday AndAlso sarate > NRate THEN NRate = sarate ENDIF
+    IF HasSunday AndAlso sorate > NRate THEN NRate = sorate ENDIF
 
+    ' Höchster Satz für Tagstunden
     DRate = 0
-    IF HasHoliday AndAlso HolidayRate > DRate THEN DRate = HolidayRate ENDIF
-    IF HasWeekend AndAlso WeekendRate > DRate THEN DRate = WeekendRate ENDIF
+    IF HasHoliday AndAlso holidayrate > DRate THEN DRate = holidayrate ENDIF
+    IF HasSaturday AndAlso sarate > DRate THEN DRate = sarate ENDIF
+    IF HasSunday AndAlso sorate > DRate THEN DRate = sorate ENDIF
 
     CalcSegment = NightHours * NRate + NonNightHours * DRate
 ENDFUNCTION
 
 DIM TotalBonus, WeekdayNextDay
 
-WeekdayNextDay = (Weekday MOD 7) + 1
+' Berechne Wochentag des Folgetags (VBA-Format)
+WeekdayNextDay = (weekday MOD 7) + 1
 
-IF TimeToHours(UntilHour) <= TimeToHours(FromHour) THEN
-    TotalBonus = CalcSegment(FromHour, "00:00", Holiday, Weekday)
-    TotalBonus = TotalBonus + CalcSegment("00:00", UntilHour, HolidayNextDay, WeekdayNextDay)
+IF untilhour <= fromhour THEN
+    ' Schicht über Mitternacht - 2 Segmente
+    TotalBonus = CalcSegment(fromhour, 24, holiday, weekday)
+    TotalBonus = TotalBonus + CalcSegment(0, untilhour, holidaynextday, WeekdayNextDay)
 ELSE
-    TotalBonus = CalcSegment(FromHour, UntilHour, Holiday, Weekday)
+    ' Normale Tagesschicht
+    TotalBonus = CalcSegment(fromhour, untilhour, holiday, weekday)
 ENDIF
 
 OUTPUT 1, Round(TotalBonus, 2)
@@ -282,5 +306,6 @@ OUTPUT 1, Round(TotalBonus, 2)
 **Erklärung:**
 - **Segment-Splitting:** Bei Schichten über Mitternacht wird die Schicht in zwei Segmente aufgeteilt
 - **CalcSegment:** Berechnet den Zuschlag unter Berücksichtigung von Nacht-, Feiertags- und Wochenendzuschlägen
+- **Separate Sa/So-Sätze:** sarate und sorate ermöglichen unterschiedliche Zuschläge für Samstag und Sonntag
 - **Höchster Zuschlag:** Es wird immer der höchste anwendbare Zuschlag verwendet
-- **HolidayNextDay:** Berücksichtigt ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten)
+- **holidaynextday:** Berücksichtigt ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten)
