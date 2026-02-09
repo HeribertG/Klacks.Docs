@@ -14,9 +14,21 @@ Mit dem Macro Editor lassen sich Skripte schreiben, die als Rechengrundlage für
 
 Alle Variablen und Konstanten sind typenlos.
 
+**WICHTIG:** `DIM` kann Variablen nur deklarieren, NICHT gleichzeitig initialisieren (wie in VB vor Version 6 / VBA).
+
 ```basic
-CONST PI = 3.1415
+' RICHTIG:
+DIM x
+x = 10
+
 DIM a, b, c
+a = 1
+b = 2
+
+' FALSCH (Syntaxfehler!):
+' DIM x = 10
+
+CONST PI = 3.1415
 IMPORT betrag, rabatt
 ```
 
@@ -34,8 +46,8 @@ Diese Variablen werden aus Work, Contract und CalendarSelection generiert:
 | holidaynextday | Boolean | Ist Folgetag ein offizieller Feiertag |
 | nightrate | Decimal | Nachtzuschlag-Satz aus Contract (z.B. 0.10 = 10%) |
 | holidayrate | Decimal | Feiertagszuschlag-Satz aus Contract (z.B. 0.15 = 15%) |
-| sarate | Decimal | Samstagszuschlag-Satz aus Contract |
-| sorate | Decimal | Sonntagszuschlag-Satz aus Contract |
+| sarate | Decimal | **Sa**mstags-Zuschlag-Satz aus Contract (sa = Samstag/Saturday) |
+| sorate | Decimal | **So**nntags-Zuschlag-Satz aus Contract (so = Sonntag/Sunday) |
 | guaranteedhours | Decimal | Garantierte Monatsstunden aus Contract |
 | fulltime | Decimal | Vollzeit-Stunden aus Contract |
 
