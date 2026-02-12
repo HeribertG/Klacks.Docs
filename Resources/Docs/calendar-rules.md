@@ -15,21 +15,21 @@ Format: `MM/DD`
 | `08/01` | 1. August (Schweizer Nationalfeiertag) |
 
 ### Feste Daten mit Wochentag-Verschiebung
-Format: `MM/DD+XXX+WW` oder `MM/DD+XXX-WW`
+Format: `MM/DD+XX+WW` oder `MM/DD+XX-WW`
 
 | Parameter | Beschreibung |
 |-----------|--------------|
 | `MM/DD` | Monat/Tag als Ausgangspunkt |
-| `XXX` | Offset in Tagen (000 bis 999) |
+| `+XX` | Vorzeichen + Offset in Tagen (00 bis 99) |
 | `+` | Nächster Wochentag nach dem Datum |
 | `-` | Vorheriger Wochentag vor dem Datum |
 | `WW` | Wochentag-Kürzel |
 
 | Beispiel | Bedeutung |
 |----------|-----------|
-| `11/01+000+TH` | Erster Donnerstag im November |
-| `11/22+000+TH` | Vierter Donnerstag im November (Thanksgiving) |
-| `05/25+000-MO` | Letzter Montag im Mai (Memorial Day) |
+| `11/01+00+TH` | Erster Donnerstag im November |
+| `11/22+00+TH` | Vierter Donnerstag im November (Thanksgiving) |
+| `05/25+00-MO` | Letzter Montag im Mai (Memorial Day) |
 
 ### Oster-bezogene Daten
 Format: `EASTER+XX` oder `EASTER-XX`
