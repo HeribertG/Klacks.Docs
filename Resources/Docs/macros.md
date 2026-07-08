@@ -89,13 +89,25 @@ IF x > 10 THEN OUTPUT 1, "gross" ENDIF
 
 ```basic
 SELECT CASE weekday
-    CASE 1, 7
-        OUTPUT 1, "Wochenende"    ' So=1, Sa=7
-    CASE 2, 3, 4, 5, 6
+    CASE 6, 7
+        OUTPUT 1, "Wochenende"    ' Sa=6, So=7 (Standard-Wochenende)
+    CASE 1, 2, 3, 4, 5
         OUTPUT 1, "Arbeitstag"    ' Mo-Fr
     CASE ELSE
         OUTPUT 1, "Unbekannt"
 END SELECT
+```
+
+**Wichtig:** Das Wochenende ist konfigurierbar (Einstellung `CALENDAR_WEEKEND_DAYS`, Standard Samstag/Sonntag — z.B. für Länder mit Freitag/Samstag-Wochenende anpassbar). Makros, die Zuschläge berechnen, sollten deshalb nicht hart `6`/`7` prüfen, sondern die Wochenendtage importieren:
+
+```basic
+IMPORT weekday, weekendday1, weekendday2
+
+IF weekday = weekendday1 OR weekday = weekendday2 THEN
+    OUTPUT 1, "Wochenende"
+ELSE
+    OUTPUT 1, "Arbeitstag"
+ENDIF
 ```
 
 ### FOR-NEXT Schleife
@@ -262,54 +274,52 @@ DEBUGPRINT "Der Wert ist: " & x
 Berechnet Zuschläge für Nacht, Feiertag und Wochenende mit korrekter Behandlung von Schichten über Mitternacht:
 
 ```basic
-IMPORT hour, fromhour, untilhour
-IMPORT weekday, holiday, holidaynextday
-IMPORT nightrate, holidayrate, sarate, sorate
+IMPORT Hour, FromHour, UntilHour
+IMPORT Weekday, Holiday, HolidayNextDay
+IMPORT NightRate, HolidayRate, SaRate, SoRate
+IMPORT WeekendDay1, WeekendDay2
 
-FUNCTION CalcSegment(StartHour, EndHour, IsHoliday, WeekdayNum)
+FUNCTION CalcSegment(StartTime, EndTime, HolidayFlag, WeekdayNum)
     DIM SegmentHours, NightHours, NonNightHours
-    DIM NRate, DRate, HasHoliday, HasSaturday, HasSunday
+    DIM NRate, DRate, HasHoliday, IsWeekendDay1, IsWeekendDay2
 
-    SegmentHours = EndHour - StartHour
+    SegmentHours = TimeToHours(EndTime) - TimeToHours(StartTime)
     IF SegmentHours < 0 THEN SegmentHours = SegmentHours + 24 ENDIF
 
-    ' Berechne Nachtstunden (23:00-06:00)
-    NightHours = 0
-    IF StartHour < 6 THEN NightHours = NightHours + IIF(EndHour < 6, EndHour, 6) - StartHour ENDIF
-    IF EndHour > 23 OrElse EndHour < StartHour THEN NightHours = NightHours + IIF(StartHour > 23, 24 - StartHour, 24 - 23) ENDIF
+    NightHours = TimeOverlap("23:00", "06:00", StartTime, EndTime)
     NonNightHours = SegmentHours - NightHours
 
-    HasHoliday = IsHoliday
-    HasSaturday = WeekdayNum = 6    ' Sa = 6 (ISO-8601)
-    HasSunday = WeekdayNum = 7      ' So = 7 (ISO-8601)
+    HasHoliday = HolidayFlag = 1
+    IsWeekendDay1 = WeekdayNum = WeekendDay1
+    IsWeekendDay2 = WeekdayNum = WeekendDay2
 
     ' Höchster Satz für Nachtstunden
-    NRate = nightrate
-    IF HasHoliday AndAlso holidayrate > NRate THEN NRate = holidayrate ENDIF
-    IF HasSaturday AndAlso sarate > NRate THEN NRate = sarate ENDIF
-    IF HasSunday AndAlso sorate > NRate THEN NRate = sorate ENDIF
+    NRate = 0
+    IF NightHours > 0 THEN NRate = NightRate ENDIF
+    IF HasHoliday AndAlso HolidayRate > NRate THEN NRate = HolidayRate ENDIF
+    IF IsWeekendDay1 AndAlso SaRate > NRate THEN NRate = SaRate ENDIF
+    IF IsWeekendDay2 AndAlso SoRate > NRate THEN NRate = SoRate ENDIF
 
     ' Höchster Satz für Tagstunden
     DRate = 0
-    IF HasHoliday AndAlso holidayrate > DRate THEN DRate = holidayrate ENDIF
-    IF HasSaturday AndAlso sarate > DRate THEN DRate = sarate ENDIF
-    IF HasSunday AndAlso sorate > DRate THEN DRate = sorate ENDIF
+    IF HasHoliday AndAlso HolidayRate > DRate THEN DRate = HolidayRate ENDIF
+    IF IsWeekendDay1 AndAlso SaRate > DRate THEN DRate = SaRate ENDIF
+    IF IsWeekendDay2 AndAlso SoRate > DRate THEN DRate = SoRate ENDIF
 
     CalcSegment = NightHours * NRate + NonNightHours * DRate
 ENDFUNCTION
 
 DIM TotalBonus, WeekdayNextDay
 
-' Berechne Wochentag des Folgetags (VBA-Format)
-WeekdayNextDay = (weekday MOD 7) + 1
+WeekdayNextDay = (Weekday MOD 7) + 1
 
-IF untilhour <= fromhour THEN
+IF TimeToHours(UntilHour) <= TimeToHours(FromHour) THEN
     ' Schicht über Mitternacht - 2 Segmente
-    TotalBonus = CalcSegment(fromhour, 24, holiday, weekday)
-    TotalBonus = TotalBonus + CalcSegment(0, untilhour, holidaynextday, WeekdayNextDay)
+    TotalBonus = CalcSegment(FromHour, "00:00", Holiday, Weekday)
+    TotalBonus = TotalBonus + CalcSegment("00:00", UntilHour, HolidayNextDay, WeekdayNextDay)
 ELSE
     ' Normale Tagesschicht
-    TotalBonus = CalcSegment(fromhour, untilhour, holiday, weekday)
+    TotalBonus = CalcSegment(FromHour, UntilHour, Holiday, Weekday)
 ENDIF
 
 OUTPUT 1, Round(TotalBonus, 2)
@@ -318,9 +328,12 @@ OUTPUT 1, Round(TotalBonus, 2)
 **Erklärung:**
 - **Segment-Splitting:** Bei Schichten über Mitternacht wird die Schicht in zwei Segmente aufgeteilt
 - **CalcSegment:** Berechnet den Zuschlag unter Berücksichtigung von Nacht-, Feiertags- und Wochenendzuschlägen
-- **Separate Sa/So-Sätze:** sarate und sorate ermöglichen unterschiedliche Zuschläge für Samstag und Sonntag
+- **Konfigurierbares Wochenende:** `WeekendDay1`/`WeekendDay2` werden importiert statt hart auf Samstag/Sonntag zu prüfen — welche zwei Wochentage das sind, legt die Einstellung `CALENDAR_WEEKEND_DAYS` fest (Standard: Samstag/Sonntag)
+- **Separate Sa/So-Sätze:** SaRate und SoRate ermöglichen unterschiedliche Zuschläge für die beiden Wochenendtage, unabhängig davon, welche Wochentage das konkret sind
 - **Höchster Zuschlag:** Es wird immer der höchste anwendbare Zuschlag verwendet
-- **holidaynextday:** Berücksichtigt ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten)
+- **HolidayNextDay:** Berücksichtigt ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten)
+
+Dies ist das tatsächliche, produktiv hinterlegte Zuschlagsmakro (Migration `GeneralizeWeekendMacrosToConfigurableDays`, 2026-07-06).
 
 ## Speicherung der Ergebnisse
 
