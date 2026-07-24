@@ -396,7 +396,6 @@ Registrierte Skills pro Agent.
 | handler_config | jsonb? | Handler-Konfiguration |
 | trigger_keywords | text[]? | Keywords für automatische Aktivierung |
 | allowed_channels | text[]? | Kanal-Einschränkung |
-| max_calls_per_session | int? | Rate Limit pro Session |
 | always_on | boolean | Immer aktiv (kein Keyword-Match nötig) |
 | version | int | Versionsnummer |
 
