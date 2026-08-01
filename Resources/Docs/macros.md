@@ -39,17 +39,27 @@ Diese Variablen werden aus Work, Contract und CalendarSelection generiert:
 | Variable | Typ | Beschreibung |
 |----------|-----|--------------|
 | hour | Decimal | Arbeitsstunden (aus Work) |
-| fromhour | Decimal | Startzeit als Dezimalstunden (8:30 → 8.5) |
-| untilhour | Decimal | Endzeit als Dezimalstunden (17:00 → 17.0) |
+| fromhour | String ("HH:MM") | Startzeit, z.B. "08:30" – mit `TimeToHours()` in Dezimalstunden umwandelbar |
+| untilhour | String ("HH:MM") | Endzeit, z.B. "17:00" |
 | weekday | Integer | Wochentag ISO-8601 (1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa, 7=So) |
 | holiday | Boolean | Ist aktueller Tag ein offizieller Feiertag |
 | holidaynextday | Boolean | Ist Folgetag ein offizieller Feiertag |
 | nightrate | Decimal | Nachtzuschlag-Satz aus Contract (z.B. 0.10 = 10%) |
 | holidayrate | Decimal | Feiertagszuschlag-Satz aus Contract (z.B. 0.15 = 15%) |
-| sarate | Decimal | **Sa**mstags-Zuschlag-Satz aus Contract (sa = Samstag/Saturday) |
-| sorate | Decimal | **So**nntags-Zuschlag-Satz aus Contract (so = Sonntag/Sunday) |
+| we1rate | Decimal | Zuschlag-Satz für konfigurierbaren Wochenendtag 1 (z.B. Samstag) |
+| we2rate | Decimal | Zuschlag-Satz für konfigurierbaren Wochenendtag 2 (z.B. Sonntag) |
+| we3rate | Decimal | Zuschlag-Satz für konfigurierbaren Wochenendtag 3 |
+| nightstart | String ("HH:MM") | Beginn des Nachtfensters aus Contract/Settings, z.B. "23:00" |
+| nightend | String ("HH:MM") | Ende des Nachtfensters, z.B. "06:00" |
 | guaranteedhours | Decimal | Garantierte Monatsstunden aus Contract |
 | fulltime | Decimal | Vollzeit-Stunden aus Contract |
+| weekendday1 | Integer | ISO-Wochentag des 1. konfigurierten Wochenendtags (0 = nicht konfiguriert) |
+| weekendday2 | Integer | ISO-Wochentag des 2. konfigurierten Wochenendtags |
+| weekendday3 | Integer | ISO-Wochentag des 3. konfigurierten Wochenendtags |
+
+*Hinweis: die früheren Variablen `sarate`/`sorate` (fixer Samstag/Sonntag-Satz) wurden durch die drei
+länderneutralen `we1rate`/`we2rate`/`we3rate` ersetzt, die zusammen mit `weekendday1-3` beliebige
+Wochenend-Tage abbilden (z.B. Freitag/Samstag statt Samstag/Sonntag).*
 
 ### Weekday-Werte (ISO-8601)
 
@@ -96,18 +106,6 @@ SELECT CASE weekday
     CASE ELSE
         OUTPUT 1, "Unbekannt"
 END SELECT
-```
-
-**Wichtig:** Das Wochenende ist konfigurierbar (Einstellung `CALENDAR_WEEKEND_DAYS`, Standard Samstag/Sonntag — z.B. für Länder mit Freitag/Samstag-Wochenende anpassbar). Makros, die Zuschläge berechnen, sollten deshalb nicht hart `6`/`7` prüfen, sondern die Wochenendtage importieren:
-
-```basic
-IMPORT weekday, weekendday1, weekendday2
-
-IF weekday = weekendday1 OR weekday = weekendday2 THEN
-    OUTPUT 1, "Wochenende"
-ELSE
-    OUTPUT 1, "Arbeitstag"
-ENDIF
 ```
 
 ### FOR-NEXT Schleife
@@ -254,6 +252,27 @@ a &= "!"    ' String-Verkettung
 OUTPUT typ, wert    ' Rückgabe an Klacks (typ entspricht MacroType)
 ```
 
+`typ` und `wert` sind zwei durch Komma getrennte Ausdrücke; beide sind optional (Default `0` bzw. `""`,
+wenn weggelassen). Ein Macro darf beliebig viele `OUTPUT`-Zeilen enthalten – jede erzeugt einen eigenen
+Rückgabewert. Klacks wertet dabei nur die folgenden Typen aus:
+
+| Typ | Bedeutung |
+|-----|-----------|
+| 1 | Hauptergebnis (Stunden bzw. Gesamtbetrag) – wird auch bei Wert 0 übernommen |
+| 10 | Nachtzuschlag |
+| 11 | Zuschlag für Wochenendtag 1 (z.B. Samstag) |
+| 12 | Zuschlag für Wochenendtag 2 (z.B. Sonntag) |
+| 13 | Zuschlag für Wochenendtag 3 (dritter konfigurierbarer Wochenendtag) |
+| 14 | Feiertagszuschlag |
+
+Zuschlags-Zeilen (Typ 10-14) mit Wert `0` werden ignoriert — ein Macro muss also nicht für jeden
+Zuschlagstyp eine eigene Zeile ausgeben, sondern nur für tatsächlich anfallende Zuschläge. Werte, die
+sich nicht als Zahl interpretieren lassen, werden übersprungen.
+
+*Beim Speichern wird das Macro zwingend kompiliert und einmal probeweise mit neutralen Testwerten
+ausgeführt. Syntax- und Laufzeitfehler werden dabei zuverlässig angezeigt statt stillschweigend zu
+einem funktionslosen Macro zu führen.*
+
 ## Debug-Funktionen
 
 | Funktion | Beschreibung |
@@ -269,71 +288,122 @@ DEBUGPRINT "Der Wert ist: " & x
 
 *Die Debug-Ausgaben erscheinen im Tab "Testen" des Macro-Editors.*
 
-## Beispiel: Zuschlagsberechnung
+## Beispiel: Zuschlagsberechnung ("AllShift")
 
-Berechnet Zuschläge für Nacht, Feiertag und Wochenende mit korrekter Behandlung von Schichten über Mitternacht:
+Das mitgelieferte Standard-Macro der Kategorie "Dienst". Berechnet Zuschläge für Nacht, Feiertag und die
+drei konfigurierbaren Wochenendtage mit korrekter Behandlung von Schichten über Mitternacht
+(Segment-Splitting) und wendet pro Segment den *höchsten* anwendbaren Satz an (highest-wins):
 
 ```basic
 IMPORT Hour, FromHour, UntilHour
 IMPORT Weekday, Holiday, HolidayNextDay
-IMPORT NightRate, HolidayRate, SaRate, SoRate
-IMPORT WeekendDay1, WeekendDay2
+IMPORT NightRate, HolidayRate, WE1Rate, WE2Rate, WE3Rate
+IMPORT NightStart, NightEnd
+IMPORT WeekendDay1, WeekendDay2, WeekendDay3
 
-FUNCTION CalcSegment(StartTime, EndTime, HolidayFlag, WeekdayNum)
-    DIM SegmentHours, NightHours, NonNightHours
-    DIM NRate, DRate, HasHoliday, IsWeekendDay1, IsWeekendDay2
+FUNCTION SegBonusForType(StartTime, EndTime, HolidayFlag, WeekdayNum, WantType)
+    DIM SegmentHours, NightHours, NonNightHours, Amount
+    DIM NRate, DRate, NType, DType
+    DIM HasHoliday, IsWE1, IsWE2, IsWE3
 
     SegmentHours = TimeToHours(EndTime) - TimeToHours(StartTime)
     IF SegmentHours < 0 THEN SegmentHours = SegmentHours + 24 ENDIF
 
-    NightHours = TimeOverlap("23:00", "06:00", StartTime, EndTime)
+    NightHours = TimeOverlap(NightStart, NightEnd, StartTime, EndTime)
     NonNightHours = SegmentHours - NightHours
 
     HasHoliday = HolidayFlag = 1
-    IsWeekendDay1 = WeekdayNum = WeekendDay1
-    IsWeekendDay2 = WeekdayNum = WeekendDay2
+    IsWE1 = WeekdayNum = WeekendDay1
+    IsWE2 = WeekdayNum = WeekendDay2
+    IsWE3 = WeekdayNum = WeekendDay3
 
-    ' Höchster Satz für Nachtstunden
     NRate = 0
-    IF NightHours > 0 THEN NRate = NightRate ENDIF
-    IF HasHoliday AndAlso HolidayRate > NRate THEN NRate = HolidayRate ENDIF
-    IF IsWeekendDay1 AndAlso SaRate > NRate THEN NRate = SaRate ENDIF
-    IF IsWeekendDay2 AndAlso SoRate > NRate THEN NRate = SoRate ENDIF
+    NType = 0
+    IF NightHours > 0 THEN
+        NRate = NightRate
+        NType = 10
+    ENDIF
+    IF HasHoliday AndAlso HolidayRate > NRate THEN
+        NRate = HolidayRate
+        NType = 14
+    ENDIF
+    IF IsWE1 AndAlso WE1Rate > NRate THEN
+        NRate = WE1Rate
+        NType = 11
+    ENDIF
+    IF IsWE2 AndAlso WE2Rate > NRate THEN
+        NRate = WE2Rate
+        NType = 12
+    ENDIF
+    IF IsWE3 AndAlso WE3Rate > NRate THEN
+        NRate = WE3Rate
+        NType = 13
+    ENDIF
 
-    ' Höchster Satz für Tagstunden
     DRate = 0
-    IF HasHoliday AndAlso HolidayRate > DRate THEN DRate = HolidayRate ENDIF
-    IF IsWeekendDay1 AndAlso SaRate > DRate THEN DRate = SaRate ENDIF
-    IF IsWeekendDay2 AndAlso SoRate > DRate THEN DRate = SoRate ENDIF
+    DType = 0
+    IF HasHoliday AndAlso HolidayRate > DRate THEN
+        DRate = HolidayRate
+        DType = 14
+    ENDIF
+    IF IsWE1 AndAlso WE1Rate > DRate THEN
+        DRate = WE1Rate
+        DType = 11
+    ENDIF
+    IF IsWE2 AndAlso WE2Rate > DRate THEN
+        DRate = WE2Rate
+        DType = 12
+    ENDIF
+    IF IsWE3 AndAlso WE3Rate > DRate THEN
+        DRate = WE3Rate
+        DType = 13
+    ENDIF
 
-    CalcSegment = NightHours * NRate + NonNightHours * DRate
+    Amount = 0
+    IF NType = WantType THEN Amount = Amount + NightHours * NRate ENDIF
+    IF DType = WantType THEN Amount = Amount + NonNightHours * DRate ENDIF
+
+    SegBonusForType = Amount
 ENDFUNCTION
 
 DIM TotalBonus, WeekdayNextDay
+DIM BonusNight, BonusWeekend1, BonusWeekend2, BonusWeekend3, BonusHoliday
 
 WeekdayNextDay = (Weekday MOD 7) + 1
 
 IF TimeToHours(UntilHour) <= TimeToHours(FromHour) THEN
-    ' Schicht über Mitternacht - 2 Segmente
-    TotalBonus = CalcSegment(FromHour, "00:00", Holiday, Weekday)
-    TotalBonus = TotalBonus + CalcSegment("00:00", UntilHour, HolidayNextDay, WeekdayNextDay)
+    BonusNight = SegBonusForType(FromHour, "00:00", Holiday, Weekday, 10) + SegBonusForType("00:00", UntilHour, HolidayNextDay, WeekdayNextDay, 10)
+    BonusWeekend1 = SegBonusForType(FromHour, "00:00", Holiday, Weekday, 11) + SegBonusForType("00:00", UntilHour, HolidayNextDay, WeekdayNextDay, 11)
+    BonusWeekend2 = SegBonusForType(FromHour, "00:00", Holiday, Weekday, 12) + SegBonusForType("00:00", UntilHour, HolidayNextDay, WeekdayNextDay, 12)
+    BonusWeekend3 = SegBonusForType(FromHour, "00:00", Holiday, Weekday, 13) + SegBonusForType("00:00", UntilHour, HolidayNextDay, WeekdayNextDay, 13)
+    BonusHoliday = SegBonusForType(FromHour, "00:00", Holiday, Weekday, 14) + SegBonusForType("00:00", UntilHour, HolidayNextDay, WeekdayNextDay, 14)
 ELSE
-    ' Normale Tagesschicht
-    TotalBonus = CalcSegment(FromHour, UntilHour, Holiday, Weekday)
+    BonusNight = SegBonusForType(FromHour, UntilHour, Holiday, Weekday, 10)
+    BonusWeekend1 = SegBonusForType(FromHour, UntilHour, Holiday, Weekday, 11)
+    BonusWeekend2 = SegBonusForType(FromHour, UntilHour, Holiday, Weekday, 12)
+    BonusWeekend3 = SegBonusForType(FromHour, UntilHour, Holiday, Weekday, 13)
+    BonusHoliday = SegBonusForType(FromHour, UntilHour, Holiday, Weekday, 14)
 ENDIF
 
+TotalBonus = BonusNight + BonusWeekend1 + BonusWeekend2 + BonusWeekend3 + BonusHoliday
+
 OUTPUT 1, Round(TotalBonus, 2)
+OUTPUT 10, BonusNight
+OUTPUT 11, BonusWeekend1
+OUTPUT 12, BonusWeekend2
+OUTPUT 13, BonusWeekend3
+OUTPUT 14, BonusHoliday
 ```
 
 **Erklärung:**
-- **Segment-Splitting:** Bei Schichten über Mitternacht wird die Schicht in zwei Segmente aufgeteilt
-- **CalcSegment:** Berechnet den Zuschlag unter Berücksichtigung von Nacht-, Feiertags- und Wochenendzuschlägen
-- **Konfigurierbares Wochenende:** `WeekendDay1`/`WeekendDay2` werden importiert statt hart auf Samstag/Sonntag zu prüfen — welche zwei Wochentage das sind, legt die Einstellung `CALENDAR_WEEKEND_DAYS` fest (Standard: Samstag/Sonntag)
-- **Separate Sa/So-Sätze:** SaRate und SoRate ermöglichen unterschiedliche Zuschläge für die beiden Wochenendtage, unabhängig davon, welche Wochentage das konkret sind
-- **Höchster Zuschlag:** Es wird immer der höchste anwendbare Zuschlag verwendet
-- **HolidayNextDay:** Berücksichtigt ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten)
+- **Segment-Splitting:** Bei Schichten über Mitternacht (z.B. 22:00-06:00) wird die Schicht in zwei Segmente aufgeteilt (bis Mitternacht / ab Mitternacht), jedes mit eigenem Wochentag/Feiertags-Flag
+- **SegBonusForType:** Berechnet den Zuschlag für ein Segment und einen bestimmten Zuschlagstyp (10-14) unter Berücksichtigung von Nacht-, Feiertags- und Wochenendzuschlägen
+- **WE1/WE2/WE3 statt Sa/So:** `weekendday1-3` machen die Wochenend-Tage konfigurierbar (nicht jedes Land hat Samstag/Sonntag als Wochenende)
+- **Höchster Zuschlag pro Segment:** `NRate`/`DRate` ermitteln jeweils den höchsten anwendbaren Satz für Nacht- bzw. Tagstunden — highest-wins, kein Stacking
+- **HolidayNextDay:** Berücksichtigt, ob der Folgetag ein Feiertag ist (wichtig für Nachtschichten über Mitternacht)
+- **Mehrere OUTPUT-Zeilen:** Zeile 1 liefert die Gesamtsumme, Zeilen 10-14 liefern die einzelnen Zuschlagsbeträge (siehe Abschnitt "Rückgabe")
 
-Dies ist das tatsächliche, produktiv hinterlegte Zuschlagsmakro (Migration `GeneralizeWeekendMacrosToConfigurableDays`, 2026-07-06).
+Dies ist das tatsächliche, produktiv hinterlegte Zuschlagsmakro "AllShift" (Migration `AddAllShiftAdditiveMacro`, 2026-07-15).
 
 ## Speicherung der Ergebnisse
 
@@ -361,6 +431,15 @@ Frontend: Row-Header Slot 3 anzeigen
 ---
 
 ## Changelog
+
+### 01.08.2026 - Dokument mit produktivem Zuschlagsmacro synchronisiert
+
+Import-Tabelle, Rückgabe-Kanäle und das Beispiel-Macro waren auf dem Stand von `SaRate`/`SoRate`
+(fixer Samstag/Sonntag-Satz, Migration `GeneralizeWeekendMacrosToConfigurableDays`, 2026-07-06)
+eingefroren, obwohl das Backend seither nur noch `WE1Rate`/`WE2Rate`/`WE3Rate` kennt. Beispiel jetzt
+1:1 das real hinterlegte "AllShift"-Macro (Migration `AddAllShiftAdditiveMacro`, 2026-07-15); zusätzlich
+`fromhour`/`untilhour` korrekt als String statt Decimal dokumentiert, `nightstart`/`nightend` und
+`weekendday1-3` ergänzt.
 
 ### 22.01.2026 - Surcharges Berechnung Fix
 
