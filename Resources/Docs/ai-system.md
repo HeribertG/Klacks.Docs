@@ -599,7 +599,7 @@ LLMResponse → AgentSessionRepository.SaveMessageAsync() → User
 
 ## Skills-Referenz
 
-Alle 10 AI-System-Skills im Überblick:
+Alle 9 AI-System-Skills im Überblick:
 
 | Skill | Typ | Berechtigung | Beschreibung |
 |-------|-----|-------------|-------------|
@@ -611,7 +611,6 @@ Alle 10 AI-System-Skills im Überblick:
 | `delete_ai_memory` | CRUD | Admin | Memory-Eintrag löschen |
 | `get_ai_guidelines` | Query | CanViewSettings | Guidelines abrufen |
 | `update_ai_guidelines` | CRUD | CanEditSettings | Guidelines aktualisieren |
-| `configure_heartbeat` | CRUD | CanEditSettings | Heartbeat-Konfiguration |
 | `set_user_group_scope` | CRUD | — | Benutzer-Gruppenfilter setzen |
 
 ---
