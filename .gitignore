@@ -3,3 +3,7 @@ obj/
 *.user
 *.suo
 .vs/
+
+# Local build scratch directories
+.build-etappe5a/
+obj-gaps/
