@@ -33,6 +33,16 @@ Du (als LLM-Agent) hast über diesen MCP-Server Zugriff auf:
 - Zuschläge, Stunden, Ferien berechnen
 - Siehe: `klacks://docs/macros`
 
+### Auto-Planung (Wizard/Autofill)
+- Automatische Schichtplan-Erstellung per evolutionärem Algorithmus
+- Berücksichtigt Vertragsstunden, Verfügbarkeit, harte und weiche Regeln
+- Siehe: `klacks://docs/autofill`
+
+### Export & Periodenabschluss
+- Perioden sperren (Periodenabschluss) vor dem Export
+- Bestellungs-Export in mehreren Formaten (CSV/JSON/XML/DATEV/BMD) plus länderspezifische Lohn-Exportformate
+- Siehe: `klacks://docs/exports`
+
 ## Navigation
 
 ### Hauptbereiche
@@ -53,21 +63,18 @@ Du (als LLM-Agent) hast über diesen MCP-Server Zugriff auf:
 | LLM-Modelle | KI-Assistenten |
 
 ## Sprachen
-Klacks unterstützt:
-- Deutsch (de)
-- Englisch (en)
-- Französisch (fr)
-- Italienisch (it)
+Klacks unterstützt 25 Sprachen: die vier Basis-Sprachen Deutsch (de), Englisch (en), Französisch (fr) und Italienisch (it) sowie 21 zusätzliche Sprachen als Language-Plugins (u.a. Arabisch, Chinesisch vereinfacht/traditionell, Japanisch, Koreanisch, Niederländisch, Polnisch, Portugiesisch, Rumänisch, Schwedisch, Spanisch, Thailändisch, Tschechisch, Vietnamesisch). Jedes Language-Plugin liefert Geodaten (Länder/Kantone/Kalenderregeln), UI-Übersetzungen und Skill-Synonyme.
 
 ## Berechtigungen
 
 ### Rollen
 | Rolle | Beschreibung |
 |-------|-------------|
-| Admin | Vollzugriff |
-| Manager | Planung und Mitarbeiter |
-| Planer | Nur Schichtplanung |
-| Viewer | Nur Lesezugriff |
+| Admin | Vollzugriff, inkl. AI-System (Soul/Memory/Guidelines), Settings, Sensitive Skills |
+| Authorised | Standard-Berechtigung für angemeldete Benutzer (granulare Permissions je Feature) |
+| User | Basis-Zugriff |
+
+Feingranulare Rechte (z.B. CanViewSettings, CanEditSettings) werden pro Rolle über `Permissions.GetPermissionsForRole()` aufgelöst, nicht über zusätzliche Rollen.
 
 ### Berechtigungen prüfen
 Nicht alle Funktionen sind für alle Benutzer verfügbar.

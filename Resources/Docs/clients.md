@@ -1,14 +1,14 @@
-# Mitarbeiter-Verwaltung
+# Mitarbeiter- und Kundenverwaltung
 
 ## Übersicht
-Mitarbeiter (Clients) sind die zentralen Entitäten in Klacks für die Personalplanung.
+"Client" ist in Klacks eine gemeinsame Entität für drei Personentypen (`EntityTypeEnum`): **Employee** (interner Mitarbeiter), **ExternEmp** (externer Mitarbeiter) und **Customer** (Kunde/Auftraggeber, relevant für den Bestellungs-Export). Die meisten UI-Bereiche zeigen nur Mitarbeiter, aber Kunden nutzen dieselbe Entität und Adressverwaltung.
 
 ## Mitarbeiter anlegen
 
 ### Pflichtfelder
 - Vorname
 - Nachname
-- Geschlecht (Herr/Frau/Divers)
+- Geschlecht (Frau/Herr/Divers/Juristische Person — Juristische Person für Firmenkunden ohne Einzelperson)
 
 ### Optionale Felder
 - Geburtsdatum
@@ -17,13 +17,9 @@ Mitarbeiter (Clients) sind die zentralen Entitäten in Klacks für die Personalp
 - Adresse (Strasse, PLZ, Ort, Kanton, Land)
 - Gruppe/Abteilung
 
-## Mitarbeiter-Status
+## Verfügbarkeit
 
-| Status | Beschreibung |
-|--------|-------------|
-| Aktiv | Mitarbeiter ist aktiv und planbar |
-| Inaktiv | Mitarbeiter ist temporär nicht verfügbar |
-| Ausgetreten | Mitarbeiter hat das Unternehmen verlassen |
+Es gibt kein separates "Mitarbeiter-Status"-Feld. Ob ein Mitarbeiter aktuell planbar ist, ergibt sich aus seinen Verträgen: ein Contract ist über `ValidFrom`/`ValidUntil` zeitlich begrenzt (siehe Abschnitt "Verträge"). Ein Mitarbeiter ohne gültigen Vertrag im betrachteten Zeitraum gilt faktisch als nicht einsatzbereit. Löschung erfolgt als SoftDelete (`IsDeleted`-Flag), nicht als Status-Wechsel.
 
 ## Gruppen und Abteilungen
 
@@ -51,17 +47,23 @@ Siehe: Identity Provider Dokumentation
 ## Verträge
 
 Jeder Mitarbeiter kann mehrere Verträge haben:
-- Verschiedene Pensen (z.B. 80%, 100%)
-- Zeitlich begrenzt oder unbefristet
-- Pro Kanton unterschiedlich
+- Verschiedene Pensen über `Percent` (z.B. 80%, 100%)
+- Zeitlich begrenzt (`ValidFrom`/`ValidUntil`) oder unbefristet
+- Kalenderzuordnung pro Vertrag (`CalendarSelection`), z.B. für kantonale Feiertage
 
-### Vertragstypen
-| Typ | Stunden/Monat | Beschreibung |
-|-----|---------------|-------------|
-| Vollzeit 160 | 160h | Standard Vollzeit |
-| Vollzeit 180 | 180h | Erhöhte Vollzeit |
-| Teilzeit 80 | 128h | 80% Pensum |
-| Teilzeit 50 | 80h | 50% Pensum |
+### Vertrags-Parameter (frei konfigurierbar, keine festen Typen)
+Es gibt keinen festen Katalog von Vertragstypen ("Vollzeit 160" o.ä.) — jeder Contract wird individuell konfiguriert:
+
+| Feld | Beschreibung |
+|------|-------------|
+| GuaranteedHours | Garantierte Stunden pro Zahlungsintervall; leer = erbt vom firmenweiten Wert, skaliert mit Percent |
+| FullTime | Vollzeit-Stunden-Referenz für die Zuschlagsberechnung |
+| Percent | Pensum in Prozent (z.B. 80 = 80%), skaliert die geerbten Stunden |
+| PaymentInterval | Weekly / Biweekly / Monthly / MonthlyTargetHours / Individual |
+| WorkOnMonday...WorkOnSunday | Arbeitstage-Flags pro Wochentag |
+| NightRate/HolidayRate/WE1-3Rate | Zuschlagssätze, siehe Macro-Dokumentation |
+
+Ein `GuaranteedHours` von explizit 0 markiert einen Bereitschafts-/On-Call-Vertrag ohne garantierte Stunden.
 
 ## Suche
 
@@ -73,6 +75,5 @@ Jeder Mitarbeiter kann mehrere Verträge haben:
 
 ### Filteroptionen
 - Nach Kanton
-- Nach Status
 - Nach Gruppe
-- Nach Vertragstyp
+- Nach Personentyp (Employee/ExternEmp/Customer)

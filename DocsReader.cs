@@ -10,7 +10,9 @@ public static class DocsReader
         ["identity-providers"] = "LDAP/OAuth2 Konfiguration",
         ["macros"] = "Makro-Scripting System",
         ["calendar-rules"] = "Ewigkeitskalender Feiertagsregeln",
-        ["ai-system"] = "AI-System: Soul, Memory & Guidelines"
+        ["ai-system"] = "AI-System: Soul, Memory & Guidelines",
+        ["autofill"] = "Wizard: Automatische Schichtplanung",
+        ["exports"] = "Periodenabschluss & Export"
     };
 
     public static IReadOnlyDictionary<string, string> GetAvailableDocs() => AvailableDocs;
