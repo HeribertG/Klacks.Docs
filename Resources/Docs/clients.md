@@ -19,7 +19,7 @@
 
 ## Verfügbarkeit
 
-Es gibt kein separates "Mitarbeiter-Status"-Feld. Ob ein Mitarbeiter aktuell planbar ist, ergibt sich aus seinen Verträgen: ein Contract ist über `ValidFrom`/`ValidUntil` zeitlich begrenzt (siehe Abschnitt "Verträge"). Ein Mitarbeiter ohne gültigen Vertrag im betrachteten Zeitraum gilt faktisch als nicht einsatzbereit. Löschung erfolgt als SoftDelete (`IsDeleted`-Flag), nicht als Status-Wechsel.
+Es gibt kein separates "Mitarbeiter-Status"-Feld. Wer wann als Mitarbeiter gilt, ergibt sich aus der Mitgliedschaft (Anstellungsverhältnis): Ein- und Austrittsdatum entscheiden über Aktive/Ehemalige/Zukünftige und darüber, in welchem Zeitfenster die Person in der Liste erscheint; im Einsatzplan sind Zellen vor dem Eintrittsdatum gesperrt. Der Vertrag regelt dagegen Pensum und Sollstunden — ohne aktiven Vertrag rechnet Klacks mit den firmenweiten Standardwerten, und der Zeilenkopf zeigt "Kein Vertrag". Verträge sind über `FromDate`/`UntilDate` begrenzt; das Von-Datum kann nicht vor dem Mitgliedschaftsbeginn liegen. Löschung erfolgt als SoftDelete (`IsDeleted`-Flag), nicht als Status-Wechsel.
 
 ## Gruppen und Abteilungen
 
@@ -48,7 +48,7 @@ Siehe: Identity Provider Dokumentation
 
 Jeder Mitarbeiter kann mehrere Verträge haben:
 - Verschiedene Pensen über `Percent` (z.B. 80%, 100%)
-- Zeitlich begrenzt (`ValidFrom`/`ValidUntil`) oder unbefristet
+- Zeitlich begrenzt (`FromDate`/`UntilDate`) oder unbefristet
 - Kalenderzuordnung pro Vertrag (`CalendarSelection`), z.B. für kantonale Feiertage
 
 ### Vertrags-Parameter (frei konfigurierbar, keine festen Typen)
