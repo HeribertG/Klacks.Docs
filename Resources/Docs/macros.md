@@ -42,8 +42,8 @@ Diese Variablen werden aus Work, Contract und CalendarSelection generiert:
 | fromhour | String ("HH:MM") | Startzeit, z.B. "08:30" – mit `TimeToHours()` in Dezimalstunden umwandelbar |
 | untilhour | String ("HH:MM") | Endzeit, z.B. "17:00" |
 | weekday | Integer | Wochentag ISO-8601 (1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa, 7=So) |
-| holiday | Boolean | Ist aktueller Tag ein offizieller Feiertag |
-| holidaynextday | Boolean | Ist Folgetag ein offizieller Feiertag |
+| holiday | Boolean | Bei Einsätzen: nur dann 1, wenn der Tag im Vertragskalender des Mitarbeiters ein offizieller Feiertag ist UND die Regel als «Zeitzuschlag bei Arbeit» markiert ist. Bei Abwesenheiten: 1, wenn der Tag ein offizieller Feiertag ist (unabhängig von «Zeitzuschlag bei Arbeit»). |
+| holidaynextday | Boolean | Wie holiday, aber für den Folgetag (Dienste über Mitternacht). |
 | nightrate | Decimal | Nachtzuschlag-Satz aus Contract (z.B. 0.10 = 10%) |
 | holidayrate | Decimal | Feiertagszuschlag-Satz aus Contract (z.B. 0.15 = 15%) |
 | we1rate | Decimal | Zuschlag-Satz für konfigurierbaren Wochenendtag 1 (z.B. Samstag) |

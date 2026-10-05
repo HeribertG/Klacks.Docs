@@ -85,8 +85,8 @@ Format: `WW+X` oder `WW-X`, mehrere Regeln mit `;` getrennt
 | Beschreibung | Optionale Beschreibung (mehrsprachig) |
 | Land | Ländercode (z.B. CH, DE, AT) |
 | Kanton/Bundesland | Regionale Zuordnung |
-| Gesetzlicher Feiertag | Offizieller/gesetzlicher Feiertag |
-| Bezahlt | Relevant für Lohnberechnung |
+| Gesetzlicher Feiertag | Offizieller/gesetzlicher Feiertag: Arbeit daran löst die Warnung «Arbeit an gesetzlichem Feiertag» aus (ausser eine Feiertagsarbeits-Ausnahme greift). Eine Kalenderauswahl kann ihn pro Eintrag auf «Nur als Erinnerung» herabstufen. |
+| Zeitzuschlag bei Arbeit | Nur bei offiziellen Feiertagen: Wer an diesem Tag arbeitet, erhält den Feiertags-Zeitzuschlag (Zeitgutschrift, keine Lohnzahlung). Inoffizielle oder «Nur als Erinnerung» geführte Feiertage lösen ihn nie aus. |
 
 ## Beispiele für typische Feiertage
 
